@@ -39,7 +39,7 @@ def staging_load():
     cur2 = conn2.cursor()
     
     try:
-        query = """ SELECT * FROM Silver.account_receivables_fact; """    
+        query = """ SELECT * FROM silver.account_receivables_fact; """    
         
         logger.info(" Query Pass! ")
             

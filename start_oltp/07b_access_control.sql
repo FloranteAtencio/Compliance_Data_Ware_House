@@ -161,121 +161,141 @@ WHERE p.resource = 'deployment' AND p.action = 'approve';
 SELECT rbac.has_permission('alice', 'deployment', 'approve');  -- t
 SELECT rbac.has_permission('alice', 'resource', 'write');      -- f (ready_role can't write)
 
+-- ================================================================================================
+-- ================================================================================================
+-- ================================================================================================
 
-SELECT 'Silver Encryption Start!' AS Status;
+-- SELECT 'Silver Encryption Start!' AS Status;
 
-BEGIN;
+-- BEGIN;
 
 -- ============================================
 -- 1. EXTENSION + KEY VALIDATION FUNCTION
--- ============================================
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- -- ============================================
+-- CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Helper: fails loudly if app.enc_key is missing or empty
-CREATE OR REPLACE FUNCTION Silver.fn_require_enc_key()
-RETURNS TEXT AS $$
-DECLARE k TEXT := current_setting('app.enc_key', true);
-BEGIN
-    IF k IS NULL OR k = '' THEN
-        RAISE EXCEPTION 'app.enc_key not set - refusing to write unencrypted PII'
-            USING HINT = 'SET app.enc_key = ''<key-from-secrets-manager>''';
-    END IF;
-    RETURN k;
-END;
-$$ LANGUAGE plpgsql STABLE;
+-- -- Helper: fails loudly if app.enc_key is missing or empty
+-- CREATE OR REPLACE FUNCTION Silver.fn_require_enc_key()
+-- RETURNS TEXT AS $$
+-- DECLARE k TEXT := current_setting('app.enc_key', true);
+-- BEGIN
+--     IF k IS NULL OR k = '' THEN
+--         RAISE EXCEPTION 'app.enc_key not set - refusing to write unencrypted PII'
+--             USING HINT = 'SET app.enc_key = ''<key-from-secrets-manager>''';
+--     END IF;
+--     RETURN k;
+-- END;
+-- $$ LANGUAGE plpgsql STABLE;
 
 -- ============================================
 -- 2. ADD CIPHERTEXT COLUMNS
 -- ============================================
-ALTER TABLE Silver.stg_customer ADD COLUMN IF NOT EXISTS customer_name_enc BYTEA;
-ALTER TABLE Silver.stg_client   ADD COLUMN IF NOT EXISTS client_name_enc   BYTEA;
+-- ALTER TABLE Silver.stg_customer ADD COLUMN IF NOT EXISTS customer_name_enc BYTEA;
+-- ALTER TABLE Silver.stg_client   ADD COLUMN IF NOT EXISTS client_name_enc   BYTEA;
 
 -- ============================================
 -- 3. ENCRYPTION TRIGGER FUNCTION
 -- ============================================
-CREATE OR REPLACE FUNCTION Silver.fn_encrypt_pii()
-RETURNS TRIGGER AS $$
-DECLARE k TEXT := Silver.fn_require_enc_key();
-BEGIN
-    -- Only encrypt when plaintext is present (skip already-encrypted rows)
-    IF TG_TABLE_NAME = 'stg_customer' AND NEW.customer_name IS NOT NULL THEN
-        NEW.customer_name_enc := pgp_sym_encrypt(
-            NEW.customer_name, k, 'cipher-algo=aes256');
-        NEW.customer_name := NULL;   -- never persist plaintext
-    ELSIF TG_TABLE_NAME = 'stg_client' AND NEW.client_name IS NOT NULL THEN
-        NEW.client_name_enc := pgp_sym_encrypt(
-            NEW.client_name, k, 'cipher-algo=aes256');
-        NEW.client_name := NULL;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- CREATE OR REPLACE FUNCTION Silver.fn_encrypt_pii()
+-- RETURNS TRIGGER AS $$
+-- DECLARE k TEXT := Silver.fn_require_enc_key();
+-- BEGIN
+--     -- Only encrypt when plaintext is present (skip already-encrypted rows)
+--     IF TG_TABLE_NAME = 'stg_customer' AND NEW.customer_name IS NOT NULL THEN
+--         NEW.customer_name_enc := pgp_sym_encrypt(
+--             NEW.customer_name, k, 'cipher-algo=aes256');
+--         NEW.customer_name := NULL;
+--     END  IF;
+--        -- never persist plaintext
+--     IF TG_TABLE_NAME = 'stg_client' AND NEW.client_name IS NOT NULL THEN
+--         NEW.client_name_enc := pgp_sym_encrypt(
+--             NEW.client_name, k, 'cipher-algo=aes256');
+--         NEW.client_name := NULL;
+--     END IF;
+    
+--     RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_silver_encrypt_customer
-    BEFORE INSERT OR UPDATE ON Silver.stg_customer
-    FOR EACH ROW EXECUTE FUNCTION Silver.fn_encrypt_pii();
+-- CREATE TRIGGER trg_silver_encrypt_customer
+--     BEFORE INSERT OR UPDATE ON Silver.stg_customer
+--     FOR EACH ROW EXECUTE FUNCTION Silver.fn_encrypt_pii();
 
-CREATE TRIGGER trg_silver_encrypt_client
-    BEFORE INSERT OR UPDATE ON Silver.stg_client
-    FOR EACH ROW EXECUTE FUNCTION Silver.fn_encrypt_pii();
+-- CREATE TRIGGER trg_silver_encrypt_client
+--     BEFORE INSERT OR UPDATE ON Silver.stg_client
+--     FOR EACH ROW EXECUTE FUNCTION Silver.fn_encrypt_pii();
 
 -- ============================================
 -- 4. ROLE-AWARE DECRYPT VIEWS
 -- ============================================
 -- Masked view for app_role / ready_role (surrogate names only)
-CREATE OR REPLACE VIEW Silver.v_stg_customer_masked AS
-SELECT
-    customer_key, customer_id,
-    'CUSTOMER-' || customer_id AS customer_name,
-    customer_type, industry, country, region,
-    validation_status, validation_errors, imported_at
-FROM Silver.stg_customer;
+-- CREATE OR REPLACE VIEW Silver.v_stg_customer_masked AS
+-- SELECT
+--     --customer_key, 
+--     customer_id,
+--     'CUSTOMER-' || customer_id AS customer_name,
+--     --customer_type, 
+--     --industry, 
+--     --country, 
+--     --region,
+--     --validation_status, 
+--     --validation_errors, 
+--     imported_at
+-- FROM Silver.stg_customer;
 
-CREATE OR REPLACE VIEW Silver.v_stg_client_masked AS
-SELECT
-    client_key, client_id,
-    'CLIENT-' || client_id AS client_name,
-    client_type, industry, country, region,
-    validation_status, validation_errors, imported_at
-FROM Silver.stg_client;
+-- CREATE OR REPLACE VIEW Silver.v_stg_client_masked AS
+-- SELECT
+--     --client_key, 
+--     client_id,
+--     'CLIENT-' || client_id AS client_name,
+--     --client_type, 
+--     --industry, 
+--     --country, 
+--     --region,
+--     --validation_status, 
+--     --validation_errors, 
+--     imported_at
+-- FROM Silver.stg_client;
 
--- Decrypted view for admin_role / audit_role (forensic review)
-CREATE OR REPLACE VIEW Silver.v_stg_customer_decrypted AS
-SELECT
-    customer_key, customer_id,
-    CASE WHEN customer_name_enc IS NOT NULL
-         THEN pgp_sym_decrypt(customer_name_enc, Silver.fn_require_enc_key())
-    END AS customer_name,
-    customer_type, industry, country, region,
-    validation_status, validation_errors, imported_at
-FROM Silver.stg_customer;
+-- -- Decrypted view for admin_role / audit_role (forensic review)
+-- CREATE OR REPLACE VIEW Silver.v_stg_customer_decrypted AS
+-- SELECT
+--     --customer_key, 
+--     customer_id,
+--     CASE WHEN customer_name_enc IS NOT NULL
+--          THEN pgp_sym_decrypt(customer_name_enc, Silver.fn_require_enc_key())
+--     END AS customer_name,
+--     --customer_type, industry, country, region,
+--     --validation_status, validation_errors, 
+--     imported_at
+-- FROM Silver.stg_customer;
 
-CREATE OR REPLACE VIEW Silver.v_stg_client_decrypted AS
-SELECT
-    client_key, client_id,
-    CASE WHEN client_name_enc IS NOT NULL
-         THEN pgp_sym_decrypt(client_name_enc, Silver.fn_require_enc_key())
-    END AS client_name,
-    client_type, industry, country, region,
-    validation_status, validation_errors, imported_at
-FROM Silver.stg_client;
+-- CREATE OR REPLACE VIEW Silver.v_stg_client_decrypted AS
+-- SELECT
+--     --client_key, 
+--     client_id,
+--     CASE WHEN client_name_enc IS NOT NULL
+--          THEN pgp_sym_decrypt(client_name_enc, Silver.fn_require_enc_key())
+--     END AS client_name,
+--     --client_type, industry, country, region,
+--     --validation_status, validation_errors, 
+--     imported_at
+-- FROM Silver.stg_client;
 
--- ============================================
--- 5. GRANTS (CLS alignment with your roles)
--- ============================================
-REVOKE ALL ON Silver.v_stg_customer_masked, Silver.v_stg_client_masked FROM PUBLIC;
-REVOKE ALL ON Silver.v_stg_customer_decrypted, Silver.v_stg_client_decrypted FROM PUBLIC;
+-- -- ============================================
+-- -- 5. GRANTS (CLS alignment with your roles)
+-- -- ============================================
+-- REVOKE ALL ON Silver.v_stg_customer_masked, Silver.v_stg_client_masked FROM PUBLIC;
+-- REVOKE ALL ON Silver.v_stg_customer_decrypted, Silver.v_stg_client_decrypted FROM PUBLIC;
 
-GRANT SELECT ON Silver.v_stg_customer_masked, Silver.v_stg_client_masked
-    TO app_role, ready_role;
-GRANT SELECT ON Silver.v_stg_customer_decrypted, Silver.v_stg_client_decrypted
-    TO admin_role, audit_role;
+-- GRANT SELECT ON Silver.v_stg_customer_masked, Silver.v_stg_client_masked
+--     TO app_role, ready_role;
+-- GRANT SELECT ON Silver.v_stg_customer_decrypted, Silver.v_stg_client_decrypted
+--     TO admin_role, audit_role;
 
--- Base tables keep their existing grants from your RBAC script;
--- views are what BI/analyst tooling should query going forward.
+-- -- Base tables keep their existing grants from your RBAC script;
+-- -- views are what BI/analyst tooling should query going forward.
 
 COMMIT;
 
 SELECT 'Silver Encryption Complete!' AS Status;
-
-COMMIT;

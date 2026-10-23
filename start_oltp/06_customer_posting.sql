@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE OR REPLACE PROCEDURE Staging.post_ar_import( 
+CREATE OR REPLACE PROCEDURE Staging.post_customer_import( 
     IN p_session_id INT, p_import_type TEXT)
 LANGUAGE plpgsql
 AS $$
@@ -14,35 +14,32 @@ BEGIN
     
     FOR r IN
         SELECT DISTINCT a.*
-        FROM Bronze.stg_ar_imports a
+        FROM Bronze.stg_customer a
         LEFT JOIN Audit.import_workflows b ON a.id = b.staging_record_id 
         WHERE a.session_id = p_session_id
           AND validation_status = 'VALID'
           AND b.new_state = 'VALID'
     LOOP
-        INSERT INTO Silver.stg_ar_imports (
-            session_id
-            ,bronze_id
-            ,invoice_code
+        INSERT INTO Silver.stg_customer (
+            bronze_id
+            ,session_id
             ,client_code
-            ,customer_code
-            ,due_date
-            ,invoice_date
-            ,amount
-            ,status
-            ,idempotency_key)
+            ,customer_id
+            ,customer_name
+            ,contact_info
+            ,email
+            ,address
+            )
         VALUES (
-            r.session_id::INT,
-            r.id::BIGINT,
-            UPPER(TRIM(r.invoice_code::TEXT)),
-            r.client_code::BIGINT,
-            r.customer_code::BIGINT,
-            r.due_date::DATE,
-            r.invoice_date::DATE,
-            r.amount::DECIMAL,
-            UPPER(TRIM(r.status::VARCHAR)),
-            r.idempotency_key::TEXT
-        );        
+            r.id::BIGINT
+            ,r.session_id::INT
+            ,r.client_id::INT
+            ,r.customer_id::INT
+            ,r.customer_name::VARCHAR
+            ,r.contact_info::VARCHAR
+            ,r.email::VARCHAR
+            ,r.address::TEXT
+            );        
         
         SELECT row_hash
         INTO new_previous_hash
@@ -62,9 +59,9 @@ BEGIN
             prev_hash, 
             row_hash
         ) VALUES (
-            'ar_line', 
+            'stg_customer', 
             r.id, 
-            r.client_code::INT, 
+            r.client_id::INT, 
             p_import_type,
             current_setting('app.import_source_file', TRUE),
             p_session_id::INT,
@@ -73,7 +70,7 @@ BEGIN
             md5(
                 COALESCE(new_previous_hash,'')
                 || p_session_id
-                || 'ar_line'
+                || 'stg_customer'
                 || p_import_type
                 || r.id
                 || current_user
@@ -92,7 +89,7 @@ BEGIN
 
 EXCEPTION
     WHEN OTHERS THEN
-        RAISE EXCEPTION 'Staging post_ar_import failed : % ', SQLERRM;
+        RAISE EXCEPTION 'Staging post_Product_import failed : % ', SQLERRM;
 
 END;
 $$ SECURITY DEFINER SET search_path = Bronze, Silver, Audit, Compliance, Staging, pg_catalog;

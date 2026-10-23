@@ -27,6 +27,39 @@ BEGIN
         RETURN 'Bronze.ar_line'; -- Fixed typo in string and removed extra dot
     END IF;
 
+    IF EXISTS (
+        SELECT 1 
+        FROM Bronze.product a 
+        WHERE a.session_id = p_session_id
+    ) THEN
+        RETURN 'Bronze.product'; -- Fixed typo in string and removed extra dot
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 
+        FROM Bronze.stg_client a 
+        WHERE a.session_id = p_session_id
+    ) THEN
+        RETURN 'Bronze.stg_client'; -- Fixed typo in string and removed extra dot
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 
+        FROM Bronze.stg_customer a 
+        WHERE a.session_id = p_session_id
+    ) THEN
+        RETURN 'Bronze.stg_customer'; -- Fixed typo in string and removed extra dot
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 
+        FROM Bronze.stg_location a 
+        WHERE a.session_id = p_session_id
+    ) THEN
+        RETURN 'Bronze.stg_location'; -- Fixed typo in string and removed extra dot
+    END IF;
+
+
     IF p_session_id IS NULL THEN
         RETURN  'stg_other_table';
     END IF;
@@ -74,13 +107,29 @@ BEGIN
     -- 3. Execute Table-Specific Sanitation
     IF table_related = 'Bronze.stg_ar_imports' THEN
         CALL Staging.ar_sanitation(new_session_id);
-
-    ELSEIF table_related = 'Bronze.ar_line' THEN
-        CALL Staging.ar_line_sanitation(new_session_id);
-
-    ELSIF table_related = 'stg_other_table' THEN
-        RAISE NOTICE 'Sanitation logic for stg_other_table is not yet implemented.';
     END IF;
+
+    IF table_related = 'Bronze.ar_line' THEN
+        CALL Staging.ar_line_sanitation(new_session_id);
+    END IF;
+
+    IF table_related = 'Bronze.product' THEN
+        CALL Staging.product_sanitation(new_session_id);
+    END IF;
+
+    IF table_related = 'Bronze.stg_client' THEN
+        CALL Staging.data_client_reference(new_session_id);
+    END IF;
+    
+    IF table_related = 'Bronze.stg_customer' THEN
+        CALL Staging.data_customer_reference(new_session_id);
+    END IF;
+
+    IF table_related = 'Bronze.stg_location' THEN
+        CALL Staging.data_location_reference(new_session_id);
+    END IF;
+
+
 
  -- Ensure we only update records for this session
 EXCEPTION

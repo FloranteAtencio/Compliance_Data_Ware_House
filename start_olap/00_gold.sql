@@ -139,6 +139,7 @@ CREATE TABLE Gold.fact_invoice_line (
     ,invoice_date_key   BIGINT NOT NULL --REFERENCES Gold.dim_date(date_key)
     ,quantity           DECIMAL(18,4) DEFAULT 0
     ,unit_price         DECIMAL(18,2) DEFAULT 0
+    ,unit_cost          DECIMAL(18,2) DEFAULT 0
     ,sub_total          DECIMAL(18,2) DEFAULT 0
     ,discount           DECIMAL(18,2) DEFAULT 0
     ,net_sales          DECIMAL(18,2) DEFAULT 0

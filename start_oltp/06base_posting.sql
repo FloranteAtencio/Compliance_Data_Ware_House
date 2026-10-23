@@ -29,14 +29,26 @@ BEGIN
     IF table_related = 'Bronze.stg_ar_imports' THEN
         CALL Staging.post_ar_import(new_session_id,p_import_type);
     END IF;
+
     IF table_related = 'Bronze.ar_line' THEN
         CALL Staging.post_ar_line_import(new_session_id,p_import_type);
     END IF;
 
+    IF table_related = 'Bronze.product' THEN
+        CALL Staging.post_product_import(new_session_id,p_import_type);
+    END IF;
 
+        IF table_related = 'Bronze.stg_client' THEN
+        CALL Staging.post_client_import(new_session_id,p_import_type);
+    END IF;
+    
+    IF table_related = 'Bronze.stg_customer' THEN
+        CALL Staging.post_customer_import(new_session_id,p_import_type);
+    END IF;
+    
 EXCEPTION
     WHEN OTHERS THEN
-        RAISE EXCEPTION 'Staging.import_workflow_posting failed : % ', SQLERRM;
+        RAISE EXCEPTION 'import_workflow_posting failed : % ', SQLERRM;
 
 END;
 $$ SECURITY DEFINER SET search_path = Bronze, Silver, Audit, Compliance, Staging, pg_catalog;

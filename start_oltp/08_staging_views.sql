@@ -1,6 +1,6 @@
     --Procuct Line
-DROP VIEW IF EXISTS silver.product_line;
-CREATE VIEW silver.product_line AS
+DROP VIEW IF EXISTS Silver.product_line;
+CREATE VIEW Silver.product_line AS
 SELECT
     sai.invoice_code,
     sai.customer_code,
@@ -47,9 +47,8 @@ LEFT JOIN silver.product p  USING (product_code);
 --     LEFT JOIN Silver.ar_line al USING(invoice_code)
 --     LEFT JOIN Silver.product p USING(product_code);
 
-
-DROP VIEW IF EXISTS silver.account_receivables_fact;
-CREATE VIEW silver.account_receivables_fact AS
+DROP VIEW IF EXISTS Silver.account_receivables_fact;
+CREATE VIEW Silver.account_receivables_fact AS
 SELECT
     sai.invoice_code,
     sai.client_code,

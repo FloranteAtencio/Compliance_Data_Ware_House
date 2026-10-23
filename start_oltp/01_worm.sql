@@ -86,8 +86,8 @@ DECLARE
     t TEXT;
     strict_tables TEXT[] := ARRAY[
         'audit.record_lineage',
-        'audit.audit_logs',
-        'audit.audit_logs_extended',
+--        'audit.audit_logs',
+--        'audit.audit_logs_extended',
         'audit.import_detail_logs',
 --        'audit.reconciliation_tracking',
 --        'audit.approval_chain',
@@ -133,8 +133,8 @@ DECLARE
     t TEXT;
     all_tables TEXT[] := ARRAY[
         'audit.record_lineage'
-        ,'audit.audit_logs'
-        ,'audit.audit_logs_extended'
+--        ,'audit.audit_logs'
+--        ,'audit.audit_logs_extended'
         ,'audit.import_detail_logs'
 --        ,'audit.reconciliation_tracking'
 --        ,'audit.approval_chain'
@@ -160,47 +160,47 @@ END $$;
 -- 5. Append-Only Optimization
 -- ═══════════════════════════════════════════
 
-ALTER TABLE audit.audit_logs SET (fillfactor = 100);
+-- ALTER TABLE audit.audit_logs SET (fillfactor = 100);
 
 -- ═══════════════════════════════════════════
 -- 6. Hash Chain Verification
 -- ═══════════════════════════════════════════
 
-CREATE OR REPLACE FUNCTION audit.verify_audit_chain()
-RETURNS TABLE(
-    row_id         INT,
-    is_valid       BOOLEAN,
-    expected_hash  TEXT,
-    actual_prev_hash TEXT
-)
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = audit, pg_catalog
-AS $$
-BEGIN
-    RETURN QUERY
-    WITH chain AS (
-        SELECT
-            audit_id,
-            row_hash,
-            prev_hash,
-            LAG(row_hash) OVER (ORDER BY audit_id) AS last_row_hash
-        FROM audit.audit_logs
-    )
-    SELECT
-        audit_id::INT,
-        CASE
-            WHEN audit_id = (SELECT min(audit_id) FROM audit.audit_logs)
-                THEN prev_hash IS NULL          -- genesis must have no prev
-            ELSE prev_hash = last_row_hash       -- all others must chain
-        END,
-        last_row_hash,
-        prev_hash
-    FROM chain
-    ORDER BY audit_id;
-END;
-$$;
+-- CREATE OR REPLACE FUNCTION audit.verify_audit_chain()
+-- RETURNS TABLE(
+--     row_id         INT,
+--     is_valid       BOOLEAN,
+--     expected_hash  TEXT,
+--     actual_prev_hash TEXT
+-- )
+-- LANGUAGE plpgsql
+-- STABLE
+-- SECURITY DEFINER
+-- SET search_path = audit, pg_catalog
+-- AS $$
+-- BEGIN
+--     RETURN QUERY
+--     WITH chain AS (
+--         SELECT
+--             audit_id,
+--             row_hash,
+--             prev_hash,
+--             LAG(row_hash) OVER (ORDER BY audit_id) AS last_row_hash
+--         FROM audit.audit_logs
+--     )
+--     SELECT
+--         audit_id::INT,
+--         CASE
+--             WHEN audit_id = (SELECT min(audit_id) FROM audit.audit_logs)
+--                 THEN prev_hash IS NULL          -- genesis must have no prev
+--             ELSE prev_hash = last_row_hash       -- all others must chain
+--         END,
+--         last_row_hash,
+--         prev_hash
+--     FROM chain
+--     ORDER BY audit_id;
+-- END;
+-- $$;
 
 COMMIT;
 

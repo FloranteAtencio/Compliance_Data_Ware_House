@@ -68,14 +68,14 @@ CREATE POLICY p_bronze_client_app_scope ON Bronze.stg_client
     WITH CHECK (session_id = current_setting('app.current_session_id', true)::INT);
 ALTER TABLE Bronze.stg_client FORCE ROW LEVEL SECURITY;
 
--- --- stg_date ---
-ALTER TABLE Bronze.stg_date ENABLE ROW LEVEL SECURITY;
-CREATE POLICY p_bronze_date_app_scope ON Bronze.stg_date
-    FOR ALL
-    TO app_role
-    USING (session_id = current_setting('app.current_session_id', true)::INT)
-    WITH CHECK (session_id = current_setting('app.current_session_id', true)::INT);
-ALTER TABLE Bronze.stg_date FORCE ROW LEVEL SECURITY;
+-- -- --- stg_date ---
+-- ALTER TABLE Bronze.stg_date ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY p_bronze_date_app_scope ON Bronze.stg_date
+--     FOR ALL
+--     TO app_role
+--     USING (session_id = current_setting('app.current_session_id', true)::INT)
+--     WITH CHECK (session_id = current_setting('app.current_session_id', true)::INT);
+-- ALTER TABLE Bronze.stg_date FORCE ROW LEVEL SECURITY;
 
 -- --- stg_location ---
 ALTER TABLE Bronze.stg_location ENABLE ROW LEVEL SECURITY;

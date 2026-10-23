@@ -101,6 +101,9 @@ BEGIN
 
     ELSEIF table_related = 'Bronze.ar_line' THEN
         CALL Staging.ar_line_import_workflow_validation(new_session_id);
+    
+    ELSEIF table_related = 'Bronze.product' THEN
+        CALL Staging.product_import_workflow_validation(new_session_id);
 
     ELSIF table_related = 'stg_other_table' THEN
         RAISE EXCEPTION 'Sanitation logic for stg_other_table is not yet implemented.';

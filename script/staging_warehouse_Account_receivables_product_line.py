@@ -61,7 +61,8 @@ def staging_load():
             
             quantity,
             unit_price,
-            
+            unit_cost,
+
             sub_total,
             discount,
             net_sales,
@@ -83,8 +84,9 @@ def staging_load():
 
                 row['invoice_date'],
 
-                row['product_price'],
                 row['sold_quantity'],
+                row['product_price'],
+                row['product_cost'],
 
                 row['sub_total'],
                 row['discount'],
